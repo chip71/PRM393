@@ -1,0 +1,13 @@
+# Backend
+**/node_modules/
+backend/.env
+
+# Frontend
+**/build/
+**/.dart_tool/
+**/.idea/
+**/.metadata
+**/*.iml
+
+# OS files
+.DS_Store
