@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'screens/HomeScreen.dart';
 import 'screens/AlbumScreen.dart';
-// import 'screens/ArtistScreen.dart'; // Màn hình danh sách nghệ sĩ
-// import 'screens/GenreScreen.dart';  // Màn hình thể loại
-// import 'screens/ProfileScreen.dart';
+import 'screens/ArtistScreen.dart';
+import 'screens/GenreScreen.dart';
+import 'screens/ProfileScreen.dart';
 import 'screens/AlbumDetailScreen.dart';
 import 'screens/ArtistDetailScreen.dart';
+import 'screens/GenreDetailScreen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -48,6 +49,14 @@ class MyApp extends StatelessWidget {
             );
           }
         }
+        // Trong main.dart -> onGenerateRoute
+        if (settings.name == '/genre-detail') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) =>
+                GenreDetailScreen(genreId: args['id'], genreName: args['name']),
+          );
+        }
 
         return MaterialPageRoute(builder: (context) => const MainTabs());
       },
@@ -69,9 +78,9 @@ class _MainTabsState extends State<MainTabs> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const AlbumScreen(),
-    // const ArtistScreen(), // Thay thế Cart
-    // const GenreScreen(),  // Thêm mới Genre
-    // const ProfileScreen(),
+    const ArtistScreen(),
+    const GenreScreen(),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -83,22 +92,17 @@ class _MainTabsState extends State<MainTabs> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Quan trọng khi có từ 4 tab trở lên
+        type:
+            BottomNavigationBarType.fixed, // Quan trọng khi có từ 4 tab trở lên
         backgroundColor: Colors.black,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.grey,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Explore',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Explore'),
           BottomNavigationBarItem(
             icon: Icon(Icons.album_outlined),
             label: 'Album',
