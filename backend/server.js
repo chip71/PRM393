@@ -21,7 +21,7 @@ app.use(
       'http://localhost:3000', // React web dev
       'http://10.0.2.2:9999',  // Android emulator
       'http://192.168.',       // LAN
-      'https://musicx-mobile-backend.onrender.com', // Render API
+      'https://prm393-1.onrender.com', // Render API
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
@@ -75,5 +75,5 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 9999;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running at: http://localhost:${PORT}`);
-  console.log(`🌍 Render/External URL: https://musicx-backend.onrender.com`);
+  console.log(`🌍 Render/External URL: https://prm393-1.onrender.com`);
 });

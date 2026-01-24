@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String searchText = '';
   String selectedFormat = 'All';
 
-  final String apiUrl = 'https://musicx-mobile-backend.onrender.com/api';
+  final String apiUrl = 'https://prm393-1.onrender.com/api';
 
   @override
   void initState() {
