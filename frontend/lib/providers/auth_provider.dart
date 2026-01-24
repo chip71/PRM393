@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? _user;
   List<dynamic> _cart = [];
-  final String apiUrl = "https://musicx-mobile-backend.onrender.com";
+  final String apiUrl = "https://prm393.onrender.com";
 
   // Getters
   Map<String, dynamic>? get user => _user;

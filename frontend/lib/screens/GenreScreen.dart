@@ -50,7 +50,7 @@ class _GenreScreenState extends State<GenreScreen>
   Future<void> _fetchGenres() async {
     try {
       final response = await http.get(
-        Uri.parse('https://prm393-1.onrender.com/api/genres'),
+        Uri.parse('https://prm393.onrender.com/api/genres'),
       );
       if (response.statusCode == 200) {
         setState(() {

@@ -19,7 +19,7 @@ class _ArtistScreenState extends State<ArtistScreen> {
   // Thêm biến quản lý trạng thái sắp xếp
   bool isSortAscending = true;
 
-  final String apiUrl = 'https://prm393-1.onrender.com/api/artists';
+  final String apiUrl = 'https://prm393.onrender.com/api/artists';
 
   @override
   void initState() {

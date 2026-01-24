@@ -21,7 +21,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
   bool isLoading = true;
   String? error;
 
-  final String apiUrl = 'https://prm393-1.onrender.com/api';
+  final String apiUrl = 'https://prm393.onrender.com/api';
 
   @override
   void initState() {
