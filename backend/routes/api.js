@@ -13,13 +13,13 @@ const adminController = require('../controllers/adminController.js');
 
 // --- Safe wrapper để tránh lỗi controller ---
 const safe = (fn) =>
-  typeof fn === 'function'
-    ? fn
-    : (req, res) => {
-        console.error(`❌ ROUTER ERROR: Controller function not found for path ${req.path}`);
-        res.status(500).json({
-          error: 'Server configuration error: Controller function missing.',
-        });
+   typeof fn === 'function'
+      ? fn
+      : (req, res) => {
+         console.error(`❌ ROUTER ERROR: Controller function not found for path ${req.path}`);
+         res.status(500).json({
+            error: 'Server configuration error: Controller function missing.',
+         });
       };
 
 /* =========================================================
@@ -52,7 +52,7 @@ router.delete('/orders/:id', safe(orderController.deleteOrder));
    👤 USER PROFILE
 ========================================================= */
 router.get('/users/:id', safe(userController.getUserById));
-router.put('/users/profile', safe(userController.updateUserProfile));
+router.put('/users/:id', safe(userController.updateUser));
 router.put('/users/password', safe(userController.changeUserPassword));
 
 /* =========================================================
