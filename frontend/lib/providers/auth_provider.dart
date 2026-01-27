@@ -8,16 +8,24 @@ class AuthProvider with ChangeNotifier {
   List<dynamic> _cart = [];
   final String apiUrl = "https://prm393.onrender.com";
 
-  // Getters
+  // --- 🔍 GETTERS ---
   Map<String, dynamic>? get user => _user;
   List<dynamic> get cart => _cart;
-
+  
+  // Kiểm tra vai trò Admin
   bool get isAdmin => _user != null && _user!['role'] == 'admin';
+  
+  // Kiểm tra vai trò User thường
+  bool get isUser => _user != null && _user!['role'] == 'user';
+  
+  // Kiểm tra trạng thái đăng nhập
+  bool get isAuthenticated => _user != null;
 
   AuthProvider() {
     _loadData();
   }
 
+  // Tải dữ liệu từ bộ nhớ máy khi khởi tạo
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUser = prefs.getString('user');
@@ -28,7 +36,8 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ Cập nhật Login: Thêm lưu vào SharedPreferences
+  // --- 🔐 AUTHENTICATION (Đăng nhập/Đăng ký) ---
+
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await http.post(
@@ -40,11 +49,8 @@ class AuthProvider with ChangeNotifier {
       final data = json.decode(response.body);
       if (response.statusCode == 200) {
         _user = data;
-        
-        // Lưu dữ liệu user vào bộ nhớ máy để duy trì đăng nhập
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user', json.encode(_user));
-        
         notifyListeners();
         return {'success': true};
       }
@@ -54,67 +60,22 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // ✅ Thêm phương thức Update Profile
-  Future<bool> updateProfile(String newName) async {
-    try {
-      if (_user == null) return false;
-
-      final response = await http.put(
-        Uri.parse("$apiUrl/api/users/profile"),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "name": newName,
-          "userId": _user!['_id'], // Gửi userId tương tự logic JS của bạn
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        
-        // 1. Cập nhật dữ liệu trong bộ nhớ (Memory)
-        _user!['name'] = responseData['name'];
-        
-        // 2. Cập nhật dữ liệu trong bộ nhớ máy (SharedPreferences)
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user', json.encode(_user));
-        
-        // 3. Thông báo cho UI (EditProfileScreen) để gấu gật đầu và hiện tên mới
-        notifyListeners(); 
-        return true;
-      }
-      return false;
-    } catch (e) {
-      debugPrint("Update Profile Error: $e");
-      return false;
-    }
-  }
-
-  Future<Map<String, dynamic>> register(
-    String name,
-    String email,
-    String password,
-  ) async {
+  Future<Map<String, dynamic>> register(String name, String email, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$apiUrl/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'name': name, 'email': email, 'password': password}),
       );
-
-      final responseData = json.decode(response.body);
-
+      final data = json.decode(response.body);
       if (response.statusCode == 201) {
-        _user = responseData;
+        _user = data;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user', json.encode(_user));
         notifyListeners();
         return {'success': true};
-      } else {
-        return {
-          'success': false,
-          'message': responseData['message'] ?? 'Registration failed',
-        };
       }
+      return {'success': false, 'message': data['message'] ?? 'Registration failed'};
     } catch (e) {
       return {'success': false, 'message': 'Cannot connect to server'};
     }
@@ -129,11 +90,108 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Cart Functions ---
+  // --- 👤 USER PROFILE MANAGEMENT ---
+
+  Future<bool> updateProfile(String newName) async {
+    try {
+      if (_user == null) return false;
+      final String userId = _user!['_id'];
+
+      final response = await http.put(
+        Uri.parse("$apiUrl/api/users/$userId"), 
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"name": newName}),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        _user!['name'] = responseData['name'];
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user', json.encode(_user));
+        notifyListeners(); 
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Update Profile Error: $e");
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword) async {
+    try {
+      if (_user == null) return {'success': false, 'message': 'User not found'};
+      final String userId = _user!['_id'];
+
+      final response = await http.put(
+        Uri.parse("$apiUrl/api/admin/users/$userId/password"), 
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "currentPassword": currentPassword,
+          "newPassword": newPassword,
+        }),
+      );
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message']};
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to update password'};
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error'};
+    }
+  }
+
+  // --- 📦 ORDERS & TRANSACTIONS ---
+
+  Future<List<dynamic>> fetchOrderHistory() async {
+    try {
+      if (_user == null) return [];
+      final String userId = _user!['_id'];
+
+      final response = await http.get(
+        Uri.parse("$apiUrl/api/users/$userId/orders"),
+        headers: {"Content-Type": "application/json"},
+      );
+
+      if (response.statusCode == 200) {
+        List<dynamic> orders = json.decode(response.body);
+        // Sắp xếp đơn hàng mới nhất lên đầu
+        orders.sort((a, b) => DateTime.parse(b['orderDate']).compareTo(DateTime.parse(a['orderDate'])));
+        return orders;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelOrder(String orderId) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$apiUrl/api/orders/$orderId/cancel"),
+        headers: {"Content-Type": "application/json"},
+      );
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true, 
+          'message': data['message'] ?? 'Order cancelled successfully',
+          'order': data['order']
+        };
+      }
+      return {'success': false, 'message': data['message'] ?? 'Failed to cancel order'};
+    } catch (e) {
+      return {'success': false, 'message': 'Connection error'};
+    }
+  }
+
+  // --- 🛒 CART FUNCTIONS ---
+
   void addToCart(Map<String, dynamic> itemData) {
     final id = itemData['_id'] ?? itemData['albumId'];
     final price = itemData['price'] ?? itemData['pricePerUnit'];
-
     final existingIndex = _cart.indexWhere((item) => item['albumId'] == id);
 
     if (existingIndex >= 0) {
@@ -163,6 +221,19 @@ class AuthProvider with ChangeNotifier {
       _saveCart();
       notifyListeners();
     }
+  }
+
+  void removeFromCart(String albumId) {
+    _cart.removeWhere((item) => item['albumId'] == albumId);
+    _saveCart();
+    notifyListeners();
+  }
+
+  // Xóa giỏ hàng sau khi Checkout
+  void clearCart() {
+    _cart = [];
+    _saveCart();
+    notifyListeners();
   }
 
   Future<void> _saveCart() async {

@@ -97,7 +97,7 @@ class _GenreScreenState extends State<GenreScreen>
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  "Duyệt tìm tất cả",
+                  "All Genres",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
               ),

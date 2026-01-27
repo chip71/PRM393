@@ -15,7 +15,6 @@ class _LoginScreenState extends State<LoginScreen> {
   SMIInput<bool>? _isHandsUp, _isChecking;
   SMIInput<double>? _numLook;
   
-  // Đồng bộ tên Trigger với hệ thống mới
   SMITrigger? _successTrigger, _failTrigger; 
 
   final _emailController = TextEditingController();
@@ -27,30 +26,27 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true; 
   String? _errorMessage;
 
+  // Design Palette (MUSICX Style)
   final Color bgColor = Colors.white;            
-  final Color circleColor = const Color(0xFFE8F5E9); 
+  final Color circleColor = const Color(0xFFF0F0F0); // Xám nhạt hiện đại
   final Color inputBgColor = const Color(0xFFF5F5F5); 
   final Color primaryBlack = Colors.black;       
-  final Color accentGreen = const Color(0xFF4CAF50); 
+  final Color accentGreen = const Color(0xFF1DB954); // Spotify Green cho các nút phụ
 
   @override
   void initState() {
     super.initState();
-    // Gấu liếc nhìn khi nhập Email
     _emailFocusNode.addListener(() {
       if (mounted) _isChecking?.value = _emailFocusNode.hasFocus;
     });
-    // Gấu phản ứng thông minh với ô mật khẩu
     _passwordFocusNode.addListener(_updateBearAnimation);
   }
 
-  // Logic: Che mắt khi ẩn mật khẩu, liếc nhìn khi hiện mật khẩu
   void _updateBearAnimation() {
     if (_passwordFocusNode.hasFocus) {
       _isHandsUp?.value = _obscurePassword; 
       _isChecking?.value = !_obscurePassword; 
       if (!_obscurePassword) {
-        // Cập nhật vị trí liếc nhìn ngay khi hiện mật khẩu
         _numLook?.value = _passwordController.text.length.toDouble() * 1.5;
       }
     } else {
@@ -82,8 +78,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _isHandsUp = _controller!.findInput<bool>('isHandsUp');
       _isChecking = _controller!.findInput<bool>('isChecking');
       _numLook = _controller!.findInput<double>('numLook');
-      
-      // Lấy các Trigger phản hồi theo tên mới
       _successTrigger = _controller!.findInput<bool>('successTrigger') as SMITrigger?;
       _failTrigger = _controller!.findInput<bool>('failTrigger') as SMITrigger?;
     }
@@ -95,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       setState(() => _errorMessage = "Email and password are required.");
-      _failTrigger?.fire(); // Gấu biểu cảm lỗi
+      _failTrigger?.fire();
       return;
     }
 
@@ -111,18 +105,23 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await auth.login(email, password);
 
     if (mounted) {
-      setState(() => _isLoading = false);
       if (result['success']) {
-        _successTrigger?.fire(); // Gấu biểu cảm thành công
+        _successTrigger?.fire();
         
+        // Đợi hoạt ảnh thành công kết thúc rồi mới điều hướng
         Future.delayed(const Duration(milliseconds: 1500), () {
           if (mounted) {
-            Navigator.pushNamedAndRemoveUntil(context, auth.isAdmin ? '/admin-dashboard' : '/', (r) => false);
+            setState(() => _isLoading = false);
+            // ✅ Đẩy về '/' để Route Guard tự quyết định đích đến (Dashboard hoặc Explore)
+            Navigator.pushNamedAndRemoveUntil(context, '/', (r) => false);
           }
         });
       } else {
-        _failTrigger?.fire(); // Gấu biểu cảm lỗi khi đăng nhập sai
-        setState(() => _errorMessage = result['message']);
+        _failTrigger?.fire();
+        setState(() {
+          _isLoading = false;
+          _errorMessage = result['message'];
+        });
       }
     }
   }
@@ -137,17 +136,17 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             children: [
               const SizedBox(height: 40),
-              Text(
+              const Text(
                 "MUSICX",
-                style: TextStyle(color: primaryBlack, fontSize: 42, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                style: TextStyle(color: Colors.black, fontSize: 42, fontWeight: FontWeight.w900, letterSpacing: 1.5),
               ),
-              const Text("Welcome Back", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+              const Text("Welcome Back", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 30),
 
-              // Vòng tròn gấu xanh lá
+              // Rive Bear Animation
               Center(
                 child: Container(
-                  height: 180, width: 180,
+                  height: 200, width: 200,
                   decoration: BoxDecoration(color: circleColor, shape: BoxShape.circle),
                   child: ClipOval(
                     child: RiveAnimation.asset(
@@ -177,7 +176,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 icon: Icons.lock_outline,
                 obscureText: _obscurePassword,
                 onChanged: (v) {
-                  // Chỉ liếc nhìn khi mật khẩu đang hiển thị
                   if (!_obscurePassword) _numLook?.value = v.length.toDouble() * 1.5;
                 },
                 suffixIcon: IconButton(
@@ -189,40 +187,39 @@ class _LoginScreenState extends State<LoginScreen> {
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 15),
-                  child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                  child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w500)),
                 ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
 
               ElevatedButton(
                 onPressed: _isLoading ? null : _handleSubmit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlack,
-                  minimumSize: const Size(double.infinity, 55),
+                  minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   elevation: 0,
                 ),
                 child: _isLoading 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Text("Sign In", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               ),
 
               const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("No account?", style: TextStyle(color: Colors.grey)),
+                  TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/register'),
+                    child: Text("Sign Up Now", style: TextStyle(color: accentGreen, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
               TextButton(
                 onPressed: () {},
-                child: Text("Forgot Password?", style: TextStyle(color: accentGreen)),
+                child: const Text("Forgot Password?", style: TextStyle(color: Colors.grey, fontSize: 13)),
               ),
-              
-              const SizedBox(height: 20),
-              const Text("No account?", style: TextStyle(color: Colors.grey, fontSize: 14)),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(context, '/register'),
-                child: Text(
-                  "Sign Up Now", 
-                  style: TextStyle(color: accentGreen, fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ),
-              const SizedBox(height: 20), 
             ],
           ),
         ),
@@ -246,13 +243,13 @@ class _LoginScreenState extends State<LoginScreen> {
         focusNode: focusNode,
         obscureText: obscureText,
         onChanged: onChanged,
-        style: const TextStyle(color: Colors.black),
+        style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           hintText: hint,
-          prefixIcon: Icon(icon, color: Colors.grey),
+          prefixIcon: Icon(icon, color: Colors.black54),
           suffixIcon: suffixIcon,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
         ),
       ),
     );

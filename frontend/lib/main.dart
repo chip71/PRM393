@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// Import Providers
+// Providers
 import 'providers/auth_provider.dart';
-// Import Screens
+// Core Screens
 import 'screens/HomeScreen.dart';
 import 'screens/AlbumScreen.dart';
 import 'screens/ArtistScreen.dart';
@@ -13,7 +13,20 @@ import 'screens/ArtistDetailScreen.dart';
 import 'screens/GenreDetailScreen.dart';
 import 'screens/LoginScreen.dart';
 import 'screens/RegisterScreen.dart';
-import 'screens/EditProfileScreen.dart'; // THÊM IMPORT MỚI
+import 'screens/EditProfileScreen.dart';
+import 'screens/ChangePasswordScreen.dart';
+import 'screens/CartScreen.dart';
+import 'screens/CheckoutScreen.dart';
+import 'screens/OrderHistoryScreen.dart';
+import 'screens/OrderDetailScreen.dart';
+
+// Admin Screens
+import 'screens/admin/AdminDashboardScreen.dart';
+import 'screens/admin/ManageAlbumsScreen.dart';
+import 'screens/admin/ManageArtistsScreen.dart';
+import 'screens/admin/ManageGenresScreen.dart';
+import 'screens/admin/ManageOrdersScreen.dart';
+import 'screens/admin/ManageUsersScreen.dart';
 
 void main() {
   runApp(
@@ -35,65 +48,167 @@ class MyApp extends StatelessWidget {
       title: 'MusicX',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // Cấu hình SeedColor màu đen và Material3
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white, // Nền trắng cho toàn bộ ứng dụng
+        scaffoldBackgroundColor: Colors.white,
       ),
+      // Luôn bắt đầu từ '/', logic onGenerateRoute sẽ quyết định nơi đi tiếp
       initialRoute: '/',
       onGenerateRoute: (settings) {
-        if (settings.name == '/') {
-          return MaterialPageRoute(builder: (context) => const MainTabs());
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        final bool isLoggedIn = auth.user != null;
+        final bool isAdmin = auth.isAdmin;
+
+        // --- 🛡️ PHÂN NHÓM ROUTES ---
+        final adminRoutes = [
+          '/admin-dashboard',
+          '/manage-albums',
+          '/manage-artists',
+          '/manage-genres',
+          '/manage-orders',
+          '/manage-users',
+        ];
+
+        final guestRoutes = ['/login', '/register'];
+
+        // --- 🔒 LOGIC CHẶN TRUY CẬP (PROTECTION GUARD) ---
+
+        // 1. Nếu là ADMIN: Chặn tuyệt đối không cho vào các trang User/Guest
+        // Khi refresh hoặc điều hướng, nếu không thuộc danh sách adminRoutes thì đẩy về Dashboard
+        if (isAdmin && !adminRoutes.contains(settings.name)) {
+          return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
         }
 
-        // --- Album Detail Route ---
-        if (settings.name == '/album-detail') {
-          final args = settings.arguments;
-          if (args is String) {
-            return MaterialPageRoute(
-              builder: (context) => AlbumDetailScreen(albumId: args),
-            );
-          }
-        }
-
-        // --- Artist Detail Route ---
-        if (settings.name == '/artist-detail') {
-          final args = settings.arguments;
-          if (args is String) {
-            return MaterialPageRoute(
-              builder: (context) => ArtistDetailScreen(artistId: args),
-            );
-          }
-        }
-
-        // --- Genre Detail Route ---
-        if (settings.name == '/genre-detail') {
-          final args = settings.arguments as Map<String, dynamic>;
+        // 2. Nếu là USER (không phải Admin): Chặn vào trang Admin
+        if (isLoggedIn && !isAdmin && adminRoutes.contains(settings.name)) {
           return MaterialPageRoute(
-            builder: (context) => GenreDetailScreen(
-              genreId: args['id'],
-              genreName: args['name'],
-            ),
+            builder: (_) => const AccessDeniedScreen(message: "Admin Rights Required"),
           );
         }
 
-        // --- Authentication Routes ---
-        if (settings.name == '/login') {
-          return MaterialPageRoute(builder: (context) => const LoginScreen());
-        }
-        
-        if (settings.name == '/register') {
-          return MaterialPageRoute(builder: (context) => const RegisterScreen());
+        // 3. Chặn người đã đăng nhập (User/Admin) vào lại trang Login/Register
+        if (isLoggedIn && guestRoutes.contains(settings.name)) {
+          return MaterialPageRoute(
+            builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
+          );
         }
 
-        // --- Profile & Edit Routes ---
-        if (settings.name == '/edit-profile') { // THÊM ROUTE CHỈNH SỬA HỒ SƠ
-          return MaterialPageRoute(builder: (context) => const EditProfileScreen());
-        }
+        // --- 🚀 KHAI BÁO CÁC TUYẾN ĐƯỜNG (ROUTES DEFINITION) ---
+        switch (settings.name) {
+          case '/':
+            return MaterialPageRoute(
+              builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
+            );
 
-        // Mặc định quay về MainTabs nếu không tìm thấy route
-        return MaterialPageRoute(builder: (context) => const MainTabs());
+          case '/album-detail':
+            final args = settings.arguments as String;
+            return MaterialPageRoute(builder: (_) => AlbumDetailScreen(albumId: args));
+
+          case '/artist-detail':
+            final args = settings.arguments as String;
+            return MaterialPageRoute(builder: (_) => ArtistDetailScreen(artistId: args));
+
+          case '/genre-detail':
+            final args = settings.arguments as Map<String, dynamic>;
+            return MaterialPageRoute(
+              builder: (_) => GenreDetailScreen(genreId: args['id'], genreName: args['name']),
+            );
+
+          case '/login':
+            return MaterialPageRoute(builder: (_) => const LoginScreen());
+          
+          case '/register':
+            return MaterialPageRoute(builder: (_) => const RegisterScreen());
+
+          case '/edit-profile':
+            return MaterialPageRoute(builder: (_) => const EditProfileScreen());
+
+          case '/change-password':
+            return MaterialPageRoute(builder: (_) => const ChangePasswordScreen());
+
+          case '/cart':
+            return MaterialPageRoute(builder: (_) => const CartScreen());
+
+          case '/checkout':
+            return MaterialPageRoute(builder: (_) => const CheckoutScreen());
+
+          case '/order-history':
+            return MaterialPageRoute(builder: (_) => const OrderHistoryScreen());
+
+          case '/order-detail':
+            final args = settings.arguments;
+            return MaterialPageRoute(builder: (_) => OrderDetailScreen(order: args));
+
+          // --- ADMIN ROUTES ---
+          case '/admin-dashboard':
+            return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
+
+          case '/manage-albums':
+            return MaterialPageRoute(builder: (_) => const ManageAlbumsScreen());
+
+          case '/manage-artists':
+            return MaterialPageRoute(builder: (_) => const ManageArtistsScreen());
+
+          case '/manage-genres':
+            return MaterialPageRoute(builder: (_) => const ManageGenresScreen());
+
+          case '/manage-orders':
+            return MaterialPageRoute(builder: (_) => const ManageOrdersScreen());
+
+          case '/manage-users':
+            return MaterialPageRoute(builder: (_) => const ManageUsersScreen());
+
+          default:
+            return MaterialPageRoute(
+              builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
+            );
+        }
       },
+    );
+  }
+}
+
+// --- 🚫 MÀN HÌNH BÁO LỖI QUYỀN TRUY CẬP ---
+class AccessDeniedScreen extends StatelessWidget {
+  final String message;
+  const AccessDeniedScreen({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(30.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_person_outlined, size: 100, color: Colors.black),
+              const SizedBox(height: 20),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "You do not have permission to view this page.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: () => Navigator.pushReplacementNamed(context, '/'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  minimumSize: const Size(200, 50),
+                ),
+                child: const Text("Return Home", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -108,7 +223,6 @@ class MainTabs extends StatefulWidget {
 class _MainTabsState extends State<MainTabs> {
   int _selectedIndex = 0;
 
-  // Danh sách 5 màn hình chính sử dụng IndexedStack để giữ trạng thái
   final List<Widget> _screens = [
     const HomeScreen(),
     const AlbumScreen(),
@@ -125,14 +239,13 @@ class _MainTabsState extends State<MainTabs> {
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold cung cấp Material ancestor cần thiết cho các TextField bên trong tab
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed, 
-        backgroundColor: Colors.black, // Thanh điều hướng màu đen
-        selectedItemColor: Colors.white, // Item được chọn màu trắng
-        unselectedItemColor: Colors.grey, // Item không chọn màu xám
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.grey, 
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: const [

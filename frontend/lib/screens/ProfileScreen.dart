@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/navbar.dart'; // Giả sử bạn lưu file navbar tại thư mục widgets
+import '../widgets/navbar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,8 +11,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Biến để quản lý trạng thái tìm kiếm (nếu cần dùng trong tương lai)
-  String _searchText = "";
+  // Đã loại bỏ biến _searchText vì trang này không dùng tính năng tìm kiếm nữa
 
   @override
   Widget build(BuildContext context) {
@@ -23,21 +22,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // --- SỬ DỤNG NAVBAR TÙY CHỈNH CỦA BẠN ---
+          // --- NAVBAR: ĐÃ TẮT SEARCH ---
           Navbar(
-            searchText: _searchText,
-            setSearchText: (value) {
-              setState(() {
-                _searchText = value;
-              });
-              // Thực hiện logic tìm kiếm của bạn tại đây
-            },
-            showSearch: !isLoggedIn, // Ẩn search bar nếu đã login để giao diện Profile gọn hơn
+            showSearch: false, // Luôn ẩn search bar ở trang Profile
+            searchText: "",    
+            setSearchText: (_) {}, 
           ),
           
           Expanded(
             child: SafeArea(
-              top: false, // Tránh SafeArea đè lên Navbar vì Navbar đã có SafeArea bên trong
+              top: false, 
               child: isLoggedIn
                   ? _buildLoggedInView(auth)
                   : _buildLoggedOutView(),

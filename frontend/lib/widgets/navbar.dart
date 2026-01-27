@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart'; // Thêm import Provider
+import '../providers/auth_provider.dart'; // Thêm import AuthProvider
 
 class Navbar extends StatelessWidget {
   final String searchText;
@@ -15,6 +17,10 @@ class Navbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Lắng nghe AuthProvider để lấy số lượng sản phẩm trong giỏ
+    final authProvider = Provider.of<AuthProvider>(context);
+    final int cartItemCount = authProvider.cart.length;
+
     return Container(
       color: Colors.white,
       child: SafeArea(
@@ -40,19 +46,52 @@ class Navbar extends StatelessWidget {
                     },
                     child: SvgPicture.asset(
                       'assets/logo/musicx_logo.svg',
-                      height: 36, // 👈 chỉnh 38–40 nếu muốn nổi hơn
+                      height: 36,
                     ),
                   ),
 
-                  /// CART ICON
-                  IconButton(
-                    icon: const Icon(
-                      Icons.shopping_cart_outlined,
-                      color: Colors.black,
-                    ),
-                    onPressed: () {
-                      // Navigator.pushNamed(context, '/cart');
-                    },
+                  /// CART ICON WITH BADGE
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.shopping_cart_outlined,
+                          color: Colors.black,
+                          size: 28, // Tăng nhẹ kích thước cho cân đối
+                        ),
+                        onPressed: () {
+                          // ✅ Kích hoạt điều hướng đến trang Giỏ hàng
+                          Navigator.pushNamed(context, '/cart');
+                        },
+                      ),
+                      // Hiển thị số lượng nếu giỏ hàng không trống
+                      if (cartItemCount > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.red, // Màu đỏ nổi bật cho thông báo
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$cartItemCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

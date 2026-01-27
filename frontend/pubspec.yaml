@@ -40,7 +40,7 @@ dependencies:
   url_launcher: ^6.3.2
   intl: ^0.20.2
   flutter_svg: ^2.2.3
-
+  fl_chart: ^0.66.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
