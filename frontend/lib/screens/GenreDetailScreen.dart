@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/navbar.dart';
 import '../widgets/album_card.dart';
 
@@ -21,8 +23,6 @@ class _GenreDetailScreenState extends State<GenreDetailScreen> {
   String searchText = "";
   String sortOption = "name";
 
-  final String apiUrl = 'https://prm393.onrender.com/api';
-
   @override
   void initState() {
     super.initState();
@@ -30,18 +30,21 @@ class _GenreDetailScreenState extends State<GenreDetailScreen> {
   }
 
   Future<void> _fetchAlbumsByGenre() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final response = await http.get(Uri.parse('$apiUrl/albums/genre/${widget.genreId}'));
+      final response = await http.get(Uri.parse('${auth.apiUrl}/api/albums/genre/${widget.genreId}'));
       if (response.statusCode == 200) {
-        setState(() {
-          albums = json.decode(response.body);
-          filteredAlbums = albums;
-          isLoading = false;
-        });
-        _applyFilters();
+        if (mounted) {
+          setState(() {
+            albums = json.decode(response.body);
+            filteredAlbums = albums;
+            isLoading = false;
+          });
+          _applyFilters();
+        }
       }
     } catch (e) {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -67,9 +70,18 @@ class _GenreDetailScreenState extends State<GenreDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- LOGIC RESPONSIVE ---
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 900;
+    
+    // Desktop sẽ bóp lề rộng hơn (15% mỗi bên), Mobile lề hẹp (20px)
+    double sidePadding = isDesktop ? screenWidth * 0.15 : 20.0;
+    
+    // Tính toán số cột Album: Desktop (4-6 cột), Mobile (2 cột)
+    int crossAxisCount = isDesktop ? (screenWidth ~/ 250).clamp(3, 8) : 2;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      // Đã bỏ hoàn toàn AppBar để không còn nút back và tiêu đề thừa
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,28 +96,47 @@ class _GenreDetailScreenState extends State<GenreDetailScreen> {
               showSearch: true,
             ),
 
-            // 2. Thanh sắp xếp (Sort Bar)
-            _buildSortBar(),
+            // 2. Nội dung chính (Sắp xếp + Tên Genre + Grid)
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: sidePadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 10),
+                      // Thanh sắp xếp (Sort Bar)
+                      _buildSortBar(),
 
-            // 3. Tên Genre hiển thị ở ngay đầu list album
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 15, 16, 10),
-              child: Text(
-                widget.genreName,
-                style: const TextStyle(
-                  fontSize: 28, 
-                  fontWeight: FontWeight.bold, 
-                  color: Colors.black,
-                  letterSpacing: -0.5
+                      // Tên Genre
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 20, 0, 15),
+                        child: Text(
+                          widget.genreName,
+                          style: TextStyle(
+                            fontSize: isDesktop ? 36 : 28, 
+                            fontWeight: FontWeight.bold, 
+                            color: Colors.black,
+                            letterSpacing: -0.5
+                          ),
+                        ),
+                      ),
+
+                      // Danh sách Album
+                      isLoading
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.only(top: 50),
+                                child: CircularProgressIndicator(color: Colors.black),
+                              ),
+                            )
+                          : _buildAlbumGrid(crossAxisCount, isDesktop),
+                      
+                      const SizedBox(height: 50),
+                    ],
+                  ),
                 ),
               ),
-            ),
-
-            // 4. Danh sách Album dạng Grid
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.black))
-                  : _buildAlbumGrid(),
             ),
           ],
         ),
@@ -114,19 +145,16 @@ class _GenreDetailScreenState extends State<GenreDetailScreen> {
   }
 
   Widget _buildSortBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _sortChip("Sort by name", "name"),
-            const SizedBox(width: 8),
-            _sortChip("Low-High", "priceAsc"),
-            const SizedBox(width: 8),
-            _sortChip("High-Low", "priceDesc"),
-          ],
-        ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _sortChip("Sort by name", "name"),
+          const SizedBox(width: 8),
+          _sortChip("Low-High", "priceAsc"),
+          const SizedBox(width: 8),
+          _sortChip("High-Low", "priceDesc"),
+        ],
       ),
     );
   }
@@ -141,24 +169,34 @@ class _GenreDetailScreenState extends State<GenreDetailScreen> {
         _applyFilters();
       },
       selectedColor: Colors.black,
-      labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.black,
+        fontSize: 13
+      ),
       shape: const StadiumBorder(),
-      backgroundColor: Colors.grey[200],
+      backgroundColor: Colors.grey[100],
+      visualDensity: VisualDensity.compact,
     );
   }
 
-  Widget _buildAlbumGrid() {
+  Widget _buildAlbumGrid(int crossAxisCount, bool isDesktop) {
     if (filteredAlbums.isEmpty) {
-      return const Center(child: Text("Không tìm thấy album nào."));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.only(top: 40),
+          child: Text("Không tìm thấy album nào trong thể loại này."),
+        ),
+      );
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.62, // Tăng nhẹ tỷ lệ để tránh overflow khi tên dài
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+      shrinkWrap: true, // Cho phép nằm trong SingleChildScrollView
+      physics: const NeverScrollableScrollPhysics(), // Scroll do cha quản lý
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: 0.65, // Điều chỉnh tỷ lệ để card đẹp hơn trên màn hình rộng
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
       ),
       itemCount: filteredAlbums.length,
       itemBuilder: (context, index) {

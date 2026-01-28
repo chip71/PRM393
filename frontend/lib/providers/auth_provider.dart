@@ -6,37 +6,49 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? _user;
   List<dynamic> _cart = [];
+  bool _isInitialized = false; // Cờ hiệu xác định đã load xong dữ liệu từ bộ nhớ
   final String apiUrl = "https://prm393.onrender.com";
 
   // --- 🔍 GETTERS ---
   Map<String, dynamic>? get user => _user;
   List<dynamic> get cart => _cart;
   
-  // Kiểm tra vai trò Admin
+  // Getter quan trọng để tránh chuyển trang sai khi Refresh trình duyệt
+  bool get isInitialized => _isInitialized; 
+  
+  // Phân quyền dựa trên vai trò
   bool get isAdmin => _user != null && _user!['role'] == 'admin';
-  
-  // Kiểm tra vai trò User thường
-  bool get isUser => _user != null && _user!['role'] == 'user';
-  
-  // Kiểm tra trạng thái đăng nhập
+  bool get isUser => _user != null && (_user!['role'] == 'user' || _user!['role'] == 'customer');
   bool get isAuthenticated => _user != null;
 
   AuthProvider() {
     _loadData();
   }
 
-  // Tải dữ liệu từ bộ nhớ máy khi khởi tạo
+  // Tải dữ liệu từ SharedPreferences khi khởi tạo ứng dụng
   Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedUser = prefs.getString('user');
-    final savedCart = prefs.getString('cart');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedUser = prefs.getString('user');
+      final savedCart = prefs.getString('cart');
 
-    if (savedUser != null) _user = json.decode(savedUser);
-    if (savedCart != null) _cart = json.decode(savedCart);
-    notifyListeners();
+      if (savedUser != null) {
+        _user = json.decode(savedUser);
+      }
+      if (savedCart != null) {
+        _cart = json.decode(savedCart);
+      }
+    } catch (e) {
+      debugPrint("Load Data Error: $e");
+    } finally {
+      // Đánh dấu đã hoàn tất khởi tạo dù có lỗi hay không
+      // notifyListeners() ở đây sẽ báo cho Consumer ở main.dart ngừng hiển thị Loading
+      _isInitialized = true; 
+      notifyListeners();
+    }
   }
 
-  // --- 🔐 AUTHENTICATION (Đăng nhập/Đăng ký) ---
+  // --- 🔐 XÁC THỰC (AUTHENTICATION) ---
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
@@ -90,7 +102,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- 👤 USER PROFILE MANAGEMENT ---
+  // --- 👤 QUẢN LÝ TÀI KHOẢN ---
 
   Future<bool> updateProfile(String newName) async {
     try {
@@ -142,7 +154,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // --- 📦 ORDERS & TRANSACTIONS ---
+  // --- 📦 QUẢN LÝ ĐƠN HÀNG & GIAO DỊCH ---
 
   Future<List<dynamic>> fetchOrderHistory() async {
     try {
@@ -156,7 +168,7 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         List<dynamic> orders = json.decode(response.body);
-        // Sắp xếp đơn hàng mới nhất lên đầu
+        // Sắp xếp đơn hàng mới nhất lên trên đầu
         orders.sort((a, b) => DateTime.parse(b['orderDate']).compareTo(DateTime.parse(a['orderDate'])));
         return orders;
       }
@@ -187,7 +199,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // --- 🛒 CART FUNCTIONS ---
+  // --- 🛒 GIỎ HÀNG (CART) ---
 
   void addToCart(Map<String, dynamic> itemData) {
     final id = itemData['_id'] ?? itemData['albumId'];
@@ -229,7 +241,6 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Xóa giỏ hàng sau khi Checkout
   void clearCart() {
     _cart = [];
     _saveCart();

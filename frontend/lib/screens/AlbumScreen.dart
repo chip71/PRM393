@@ -12,7 +12,6 @@ class AlbumScreen extends StatefulWidget {
 }
 
 class _AlbumScreenState extends State<AlbumScreen> {
-  // --- Data State ---
   List<dynamic> albums = [];
   List<dynamic> artists = [];
   List<dynamic> genres = [];
@@ -20,7 +19,6 @@ class _AlbumScreenState extends State<AlbumScreen> {
   bool isLoading = true;
   String? error;
 
-  // --- Filter State ---
   String searchText = "";
   List<String> selectedArtists = [];
   List<String> selectedGenres = [];
@@ -44,36 +42,35 @@ class _AlbumScreenState extends State<AlbumScreen> {
       ]);
 
       if (responses.every((res) => res.statusCode == 200)) {
+        if (mounted) {
+          setState(() {
+            albums = json.decode(responses[0].body);
+            artists = json.decode(responses[1].body);
+            genres = json.decode(responses[2].body);
+            filteredAlbums = albums;
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          albums = json.decode(responses[0].body);
-          artists = json.decode(responses[1].body);
-          genres = json.decode(responses[2].body);
-          filteredAlbums = albums;
+          error = "Failed to load albums.";
           isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        error = "Failed to load albums. Is the server running?";
-        isLoading = false;
-      });
     }
   }
 
   void _applyFilters() {
     List<dynamic> result = List.from(albums);
 
-    // Search filter
     if (searchText.trim().isNotEmpty) {
       result = result
-          .where((a) => a['name']
-              .toString()
-              .toLowerCase()
-              .contains(searchText.toLowerCase()))
+          .where((a) => a['name'].toString().toLowerCase().contains(searchText.toLowerCase()))
           .toList();
     }
 
-    // Artist filter
     if (selectedArtists.isNotEmpty) {
       result = result.where((a) {
         final id = a['artistID'] is Map ? a['artistID']['_id'] : a['artistID'];
@@ -81,7 +78,6 @@ class _AlbumScreenState extends State<AlbumScreen> {
       }).toList();
     }
 
-    // Genre filter
     if (selectedGenres.isNotEmpty) {
       result = result.where((a) {
         final id = a['genreID'] is Map ? a['genreID']['_id'] : a['genreID'];
@@ -89,7 +85,6 @@ class _AlbumScreenState extends State<AlbumScreen> {
       }).toList();
     }
 
-    // Sorting
     if (sortOption == "name") {
       result.sort((a, b) => a['name'].compareTo(b['name']));
     } else if (sortOption == "nameDesc") {
@@ -118,6 +113,10 @@ class _AlbumScreenState extends State<AlbumScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Detect screen width for responsiveness
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 900;
+
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.black)));
     }
@@ -135,49 +134,61 @@ class _AlbumScreenState extends State<AlbumScreen> {
               },
               showSearch: true,
             ),
-
-            // Filter Toggle
-            InkWell(
-              onTap: () => setState(() => isFilterVisible = !isFilterVisible),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.tune, size: 20),
-                    const SizedBox(width: 8),
-                    const Text("Filters", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                    const Spacer(),
-                    Icon(isFilterVisible ? Icons.expand_less : Icons.expand_more),
-                  ],
-                ),
-              ),
-            ),
-
-            // Filter Panel (Animated)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: isFilterVisible ? 280 : 0,
-              curve: Curves.easeInOut,
-              child: SingleChildScrollView(
-                child: _buildFilterContent(),
-              ),
-            ),
-
-            // Album Grid
             Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.62,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: filteredAlbums.length,
-                itemBuilder: (context, index) {
-                  final album = filteredAlbums[index];
-                  return AlbumCard(album: album);
-                },
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Sidebar Filters for Desktop
+                  if (isDesktop)
+                    Container(
+                      width: 280,
+                      decoration: BoxDecoration(
+                        border: Border(right: BorderSide(color: Colors.grey[200]!)),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: _buildFilterContent(isDesktop: true),
+                      ),
+                    ),
+
+                  // Main Content
+                  Expanded(
+                    child: Column(
+                      children: [
+                        // Mobile Filter Toggle
+                        if (!isDesktop)
+                          _buildMobileFilterToggle(),
+
+                        // Mobile Filter Panel (Animated)
+                        if (!isDesktop)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            height: isFilterVisible ? 280 : 0,
+                            curve: Curves.easeInOut,
+                            child: SingleChildScrollView(
+                              child: _buildFilterContent(isDesktop: false),
+                            ),
+                          ),
+
+                        // Album Grid
+                        Expanded(
+                          child: GridView.builder(
+                            padding: const EdgeInsets.all(12),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              // Adjust columns based on width
+                              crossAxisCount: isDesktop ? (screenWidth ~/ 250) : 2,
+                              childAspectRatio: 0.65,
+                              crossAxisSpacing: 15,
+                              mainAxisSpacing: 15,
+                            ),
+                            itemCount: filteredAlbums.length,
+                            itemBuilder: (context, index) => AlbumCard(album: filteredAlbums[index]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -186,9 +197,27 @@ class _AlbumScreenState extends State<AlbumScreen> {
     );
   }
 
-  Widget _buildFilterContent() {
+  Widget _buildMobileFilterToggle() {
+    return InkWell(
+      onTap: () => setState(() => isFilterVisible = !isFilterVisible),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            const Icon(Icons.tune, size: 20),
+            const SizedBox(width: 8),
+            const Text("Filters", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            const Spacer(),
+            Icon(isFilterVisible ? Icons.expand_less : Icons.expand_more),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterContent({required bool isDesktop}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -196,6 +225,7 @@ class _AlbumScreenState extends State<AlbumScreen> {
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
+            runSpacing: 4,
             children: [
               _filterChip("A-Z", "name", sortOption == "name", (val) => setState(() { sortOption = "name"; _applyFilters(); })),
               _filterChip("Z-A", "nameDesc", sortOption == "nameDesc", (val) => setState(() { sortOption = "nameDesc"; _applyFilters(); })),
@@ -203,12 +233,14 @@ class _AlbumScreenState extends State<AlbumScreen> {
               _filterChip("High-Low", "priceDesc", sortOption == "priceDesc", (val) => setState(() { sortOption = "priceDesc"; _applyFilters(); })),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           const Text("Artists", style: TextStyle(fontWeight: FontWeight.bold)),
-          _horizontalFilterList(artists, selectedArtists),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          isDesktop ? _verticalFilterList(artists, selectedArtists) : _horizontalFilterList(artists, selectedArtists),
+          const SizedBox(height: 20),
           const Text("Genres", style: TextStyle(fontWeight: FontWeight.bold)),
-          _horizontalFilterList(genres, selectedGenres),
+          const SizedBox(height: 8),
+          isDesktop ? _verticalFilterList(genres, selectedGenres) : _horizontalFilterList(genres, selectedGenres),
         ],
       ),
     );
@@ -220,30 +252,52 @@ class _AlbumScreenState extends State<AlbumScreen> {
       selected: isActive,
       onSelected: onSelected,
       selectedColor: Colors.black,
-      labelStyle: TextStyle(color: isActive ? Colors.white : Colors.black),
-      backgroundColor: Colors.grey[200],
+      labelStyle: TextStyle(color: isActive ? Colors.white : Colors.black, fontSize: 12),
+      backgroundColor: Colors.grey[100],
       shape: StadiumBorder(side: BorderSide.none),
+      visualDensity: VisualDensity.compact,
     );
   }
 
+  // Horizontal list for mobile space saving
   Widget _horizontalFilterList(List<dynamic> data, List<String> selectedList) {
     return SizedBox(
-      height: 50,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: data.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
-            return _filterChip("All", "all", selectedList.isEmpty, (val) => setState(() { selectedList.clear(); _applyFilters(); }));
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _filterChip("All", "all", selectedList.isEmpty, (val) => setState(() { selectedList.clear(); _applyFilters(); })),
+            );
           }
           final item = data[index - 1];
           final String id = item['_id'].toString();
           return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
+            padding: const EdgeInsets.only(right: 8),
             child: _filterChip(item['name'], id, selectedList.contains(id), (val) => _toggleSelection(id, selectedList)),
           );
         },
       ),
+    );
+  }
+
+  // Vertical list for Desktop sidebar
+  Widget _verticalFilterList(List<dynamic> data, List<String> selectedList) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _filterChip("All", "all", selectedList.isEmpty, (val) => setState(() { selectedList.clear(); _applyFilters(); })),
+        ...data.map((item) {
+          final String id = item['_id'].toString();
+          return Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _filterChip(item['name'], id, selectedList.contains(id), (val) => _toggleSelection(id, selectedList)),
+          );
+        }),
+      ],
     );
   }
 }

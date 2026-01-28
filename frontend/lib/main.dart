@@ -44,127 +44,136 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MusicX',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-      ),
-      // Luôn bắt đầu từ '/', logic onGenerateRoute sẽ quyết định nơi đi tiếp
-      initialRoute: '/',
-      onGenerateRoute: (settings) {
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        final bool isLoggedIn = auth.user != null;
-        final bool isAdmin = auth.isAdmin;
-
-        // --- 🛡️ PHÂN NHÓM ROUTES ---
-        final adminRoutes = [
-          '/admin-dashboard',
-          '/manage-albums',
-          '/manage-artists',
-          '/manage-genres',
-          '/manage-orders',
-          '/manage-users',
-        ];
-
-        final guestRoutes = ['/login', '/register'];
-
-        // --- 🔒 LOGIC CHẶN TRUY CẬP (PROTECTION GUARD) ---
-
-        // 1. Nếu là ADMIN: Chặn tuyệt đối không cho vào các trang User/Guest
-        // Khi refresh hoặc điều hướng, nếu không thuộc danh sách adminRoutes thì đẩy về Dashboard
-        if (isAdmin && !adminRoutes.contains(settings.name)) {
-          return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
-        }
-
-        // 2. Nếu là USER (không phải Admin): Chặn vào trang Admin
-        if (isLoggedIn && !isAdmin && adminRoutes.contains(settings.name)) {
-          return MaterialPageRoute(
-            builder: (_) => const AccessDeniedScreen(message: "Admin Rights Required"),
-          );
-        }
-
-        // 3. Chặn người đã đăng nhập (User/Admin) vào lại trang Login/Register
-        if (isLoggedIn && guestRoutes.contains(settings.name)) {
-          return MaterialPageRoute(
-            builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
-          );
-        }
-
-        // --- 🚀 KHAI BÁO CÁC TUYẾN ĐƯỜNG (ROUTES DEFINITION) ---
-        switch (settings.name) {
-          case '/':
-            return MaterialPageRoute(
-              builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
-            );
-
-          case '/album-detail':
-            final args = settings.arguments as String;
-            return MaterialPageRoute(builder: (_) => AlbumDetailScreen(albumId: args));
-
-          case '/artist-detail':
-            final args = settings.arguments as String;
-            return MaterialPageRoute(builder: (_) => ArtistDetailScreen(artistId: args));
-
-          case '/genre-detail':
-            final args = settings.arguments as Map<String, dynamic>;
-            return MaterialPageRoute(
-              builder: (_) => GenreDetailScreen(genreId: args['id'], genreName: args['name']),
-            );
-
-          case '/login':
-            return MaterialPageRoute(builder: (_) => const LoginScreen());
+    // SỬ DỤNG CONSUMER ĐỂ LẮNG NGHE BIẾN ISINITIALIZED TỪ AUTHPROVIDER
+    return Consumer<AuthProvider>(
+      builder: (context, auth, child) {
+        return MaterialApp(
+          title: 'MusicX',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
+            useMaterial3: true,
+            scaffoldBackgroundColor: Colors.white,
+          ),
+          // QUAN TRỌNG: Nếu chưa load xong dữ liệu, hiển thị vòng xoay tại home
+          home: !auth.isInitialized 
+              ? const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.black)))
+              : (auth.isAdmin ? const AdminDashboardScreen() : const MainTabs()),
           
-          case '/register':
-            return MaterialPageRoute(builder: (_) => const RegisterScreen());
-
-          case '/edit-profile':
-            return MaterialPageRoute(builder: (_) => const EditProfileScreen());
-
-          case '/change-password':
-            return MaterialPageRoute(builder: (_) => const ChangePasswordScreen());
-
-          case '/cart':
-            return MaterialPageRoute(builder: (_) => const CartScreen());
-
-          case '/checkout':
-            return MaterialPageRoute(builder: (_) => const CheckoutScreen());
-
-          case '/order-history':
-            return MaterialPageRoute(builder: (_) => const OrderHistoryScreen());
-
-          case '/order-detail':
-            final args = settings.arguments;
-            return MaterialPageRoute(builder: (_) => OrderDetailScreen(order: args));
-
-          // --- ADMIN ROUTES ---
-          case '/admin-dashboard':
-            return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
-
-          case '/manage-albums':
-            return MaterialPageRoute(builder: (_) => const ManageAlbumsScreen());
-
-          case '/manage-artists':
-            return MaterialPageRoute(builder: (_) => const ManageArtistsScreen());
-
-          case '/manage-genres':
-            return MaterialPageRoute(builder: (_) => const ManageGenresScreen());
-
-          case '/manage-orders':
-            return MaterialPageRoute(builder: (_) => const ManageOrdersScreen());
-
-          case '/manage-users':
-            return MaterialPageRoute(builder: (_) => const ManageUsersScreen());
-
-          default:
-            return MaterialPageRoute(
-              builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
-            );
-        }
+          onGenerateRoute: (settings) => _onGenerateAppRoute(settings, auth),
+        );
       },
     );
+  }
+
+  // Tách logic Route Guard ra hàm riêng để code sạch hơn
+  Route<dynamic> _onGenerateAppRoute(RouteSettings settings, AuthProvider auth) {
+    final bool isAdmin = auth.isAdmin;
+    final bool isLoggedIn = auth.isAuthenticated;
+
+    // --- 🛡️ PHÂN NHÓM ROUTES ---
+    final adminRoutes = [
+      '/admin-dashboard',
+      '/manage-albums',
+      '/manage-artists',
+      '/manage-genres',
+      '/manage-orders',
+      '/manage-users',
+    ];
+    
+    final guestRoutes = ['/login', '/register'];
+
+    // --- 🔒 LOGIC BẢO VỆ ĐỊNH TUYẾN (ROUTE GUARD) ---
+    
+    // 1. Nếu là ADMIN: CHẶN TUYỆT ĐỐI các trang của User thường
+    if (isAdmin && !adminRoutes.contains(settings.name) && !guestRoutes.contains(settings.name) && settings.name != '/') {
+      return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
+    }
+
+    // 2. Nếu là USER thường: Chặn vào trang Admin
+    if (isLoggedIn && !isAdmin && adminRoutes.contains(settings.name)) {
+      return MaterialPageRoute(
+        builder: (_) => const AccessDeniedScreen(message: "Admin Rights Required"),
+      );
+    }
+
+    // 3. Chặn người đã đăng nhập vào lại Login/Register
+    if (isLoggedIn && guestRoutes.contains(settings.name)) {
+      return MaterialPageRoute(
+        builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
+      );
+    }
+
+    // --- 🚀 KHAI BÁO CÁC TUYẾN ĐƯỜNG ---
+    switch (settings.name) {
+      case '/':
+        return MaterialPageRoute(
+          builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
+        );
+
+      case '/album-detail':
+        final args = settings.arguments as String;
+        return MaterialPageRoute(builder: (context) => AlbumDetailScreen(albumId: args));
+
+      case '/artist-detail':
+        final args = settings.arguments as String;
+        return MaterialPageRoute(builder: (context) => ArtistDetailScreen(artistId: args));
+
+      case '/genre-detail':
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (context) => GenreDetailScreen(genreId: args['id'], genreName: args['name']),
+        );
+
+      case '/login':
+        return MaterialPageRoute(builder: (context) => const LoginScreen());
+      
+      case '/register':
+        return MaterialPageRoute(builder: (context) => const RegisterScreen());
+
+      case '/edit-profile':
+        return MaterialPageRoute(builder: (context) => const EditProfileScreen());
+
+      case '/change-password':
+        return MaterialPageRoute(builder: (context) => const ChangePasswordScreen());
+
+      case '/cart':
+        return MaterialPageRoute(builder: (context) => const CartScreen());
+
+      case '/checkout':
+        return MaterialPageRoute(builder: (context) => const CheckoutScreen());
+
+      case '/order-history':
+        return MaterialPageRoute(builder: (context) => const OrderHistoryScreen());
+
+      case '/order-detail':
+        final args = settings.arguments;
+        return MaterialPageRoute(builder: (context) => OrderDetailScreen(order: args));
+
+      // --- 🧠 ADMIN ROUTES ---
+      case '/admin-dashboard':
+        return MaterialPageRoute(builder: (context) => const AdminDashboardScreen());
+
+      case '/manage-albums':
+        return MaterialPageRoute(builder: (context) => const ManageAlbumsScreen());
+
+      case '/manage-artists':
+        return MaterialPageRoute(builder: (context) => const ManageArtistsScreen());
+
+      case '/manage-genres':
+        return MaterialPageRoute(builder: (context) => const ManageGenresScreen());
+
+      case '/manage-orders':
+        return MaterialPageRoute(builder: (context) => const ManageOrdersScreen());
+
+      case '/manage-users':
+        return MaterialPageRoute(builder: (context) => const ManageUsersScreen());
+
+      default:
+        return MaterialPageRoute(
+          builder: (_) => isAdmin ? const AdminDashboardScreen() : const MainTabs(),
+        );
+    }
   }
 }
 
@@ -213,6 +222,7 @@ class AccessDeniedScreen extends StatelessWidget {
   }
 }
 
+// ... Giữ nguyên class MainTabs ...
 class MainTabs extends StatefulWidget {
   const MainTabs({super.key});
 

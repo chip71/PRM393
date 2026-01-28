@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/navbar.dart';
-import '../widgets/wave_painter.dart'; // Đảm bảo bạn đã tạo file này trong thư mục widgets
+import '../widgets/wave_painter.dart';
 
 class GenreScreen extends StatefulWidget {
   const GenreScreen({super.key});
@@ -18,7 +20,6 @@ class _GenreScreenState extends State<GenreScreen>
   bool isLoading = true;
   String searchText = "";
 
-  // Danh sách màu sắc cho các thẻ
   final List<Color> cardColors = [
     Colors.purple,
     Colors.blue,
@@ -33,10 +34,9 @@ class _GenreScreenState extends State<GenreScreen>
   @override
   void initState() {
     super.initState();
-    // Khởi tạo controller cho hiệu ứng sóng chạy vô tận
     _waveController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4), // Tốc độ sóng (càng lớn càng chậm)
+      duration: const Duration(seconds: 4),
     )..repeat();
     _fetchGenres();
   }
@@ -48,44 +48,53 @@ class _GenreScreenState extends State<GenreScreen>
   }
 
   Future<void> _fetchGenres() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
       final response = await http.get(
-        Uri.parse('https://prm393.onrender.com/api/genres'),
+        Uri.parse('${auth.apiUrl}/api/genres'),
       );
       if (response.statusCode == 200) {
+        if (mounted) {
+          setState(() {
+            genres = json.decode(response.body);
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          genres = json.decode(response.body);
           isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-        // Bạn có thể xử lý hiển thị lỗi ở đây
-      });
     }
   }
 
-  // Logic lọc thể loại dựa trên thanh tìm kiếm
   List<dynamic> get _filteredGenres {
     if (searchText.trim().isEmpty) return genres;
     return genres
         .where(
           (g) => g['name'].toString().toLowerCase().contains(
-            searchText.toLowerCase(),
-          ),
+                searchText.toLowerCase(),
+              ),
         )
         .toList();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Xác định kích thước màn hình
+    double screenWidth = MediaQuery.of(context).size.width;
+    bool isDesktop = screenWidth > 900;
+    
+    // Tính toán số cột dựa trên chiều rộng màn hình
+    int crossAxisCount = isDesktop ? (screenWidth ~/ 250) : 2;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Thanh Navbar tích hợp tìm kiếm
             Navbar(
               searchText: searchText,
               setSearchText: (val) => setState(() => searchText = val),
@@ -93,12 +102,15 @@ class _GenreScreenState extends State<GenreScreen>
             ),
 
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   "All Genres",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: isDesktop ? 28 : 22, 
+                    fontWeight: FontWeight.bold
+                  ),
                 ),
               ),
             ),
@@ -108,7 +120,7 @@ class _GenreScreenState extends State<GenreScreen>
                   ? const Center(
                       child: CircularProgressIndicator(color: Colors.black),
                     )
-                  : _buildGenreGrid(),
+                  : _buildGenreGrid(crossAxisCount, isDesktop),
             ),
           ],
         ),
@@ -116,7 +128,7 @@ class _GenreScreenState extends State<GenreScreen>
     );
   }
 
-  Widget _buildGenreGrid() {
+  Widget _buildGenreGrid(int crossAxisCount, bool isDesktop) {
     final list = _filteredGenres;
 
     if (list.isEmpty) {
@@ -124,78 +136,82 @@ class _GenreScreenState extends State<GenreScreen>
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // 2 cột giống Spotify
-        childAspectRatio: 1.6, // Tỷ lệ thẻ hình chữ nhật
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: isDesktop ? 2.0 : 1.6,
+        mainAxisSpacing: 20,
+        crossAxisSpacing: 20,
       ),
       itemCount: list.length,
       itemBuilder: (context, index) {
         final genre = list[index];
         final baseColor = cardColors[index % cardColors.length];
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(
-              context,
-              '/genre-detail',
-              arguments: {
-                'id': genre['_id'].toString(),
-                'name': genre['name'] ?? 'Genre',
-              },
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: baseColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: baseColor.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias, // Quan trọng: Cắt phần sóng thừa
-            child: Stack(
-              children: [
-                // Vẽ hiệu ứng sóng chuyển động
-                AnimatedBuilder(
-                  animation: _waveController,
-                  builder: (context, child) {
-                    return CustomPaint(
-                      size: Size.infinite,
-                      painter: WavePainter(
-                        animationValue: _waveController.value,
-                        color: Colors.white,
-                      ),
-                    );
-                  },
-                ),
-
-                // Tên thể loại hiển thị phía trên
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    genre['name'],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                          offset: Offset(1, 1),
+        return MouseRegion(
+          cursor: SystemMouseCursors.click, // Hiệu ứng bàn tay trên Desktop
+          child: GestureDetector(
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '/genre-detail',
+                arguments: {
+                  'id': genre['_id'].toString(),
+                  'name': genre['name'] ?? 'Genre',
+                },
+              );
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: baseColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: baseColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  AnimatedBuilder(
+                    animation: _waveController,
+                    builder: (context, child) {
+                      return CustomPaint(
+                        size: Size.infinite,
+                        painter: WavePainter(
+                          animationValue: _waveController.value,
+                          color: Colors.white.withOpacity(0.15), // Giảm độ đậm sóng để text rõ hơn
                         ),
-                      ],
+                      );
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Align(
+                      alignment: isDesktop ? Alignment.center : Alignment.topLeft,
+                      child: Text(
+                        genre['name'],
+                        textAlign: isDesktop ? TextAlign.center : TextAlign.left,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isDesktop ? 22 : 18,
+                          fontWeight: FontWeight.bold,
+                          shadows: const [
+                            Shadow(
+                              color: Colors.black26,
+                              blurRadius: 4,
+                              offset: Offset(1, 1),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
