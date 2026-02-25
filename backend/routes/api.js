@@ -99,6 +99,13 @@ router.delete('/admin/users/:id', safe(userController.deleteUser));
 router.put('/admin/users/:id/password', safe(userController.changeUserPassword));
 
 /* =========================================================
+   📝 ADMIN COMMENTS MANAGEMENT
+========================================================= */
+router.get('/admin/comments', safe(commentController.getAllComments));
+router.delete('/admin/comments/:id', safe(commentController.deleteComment));
+router.put('/admin/comments/:id', safe(commentController.updateComment));
+
+/* =========================================================
    💰 PAYMENTS (MoMo)
 ========================================================= */
 router.post('/comments', safe(commentController.addComment)); // Add new comment

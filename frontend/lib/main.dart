@@ -27,6 +27,7 @@ import 'screens/admin/ManageArtistsScreen.dart';
 import 'screens/admin/ManageGenresScreen.dart';
 import 'screens/admin/ManageOrdersScreen.dart';
 import 'screens/admin/ManageUsersScreen.dart';
+import 'screens/admin/AdminCommentsScreen.dart';
 
 void main() {
   runApp(
@@ -78,6 +79,7 @@ class MyApp extends StatelessWidget {
       '/manage-artists',
       '/manage-genres',
       '/manage-orders',
+      '/admin-comments',
       '/manage-users',
     ];
     
@@ -168,6 +170,9 @@ class MyApp extends StatelessWidget {
 
       case '/manage-users':
         return MaterialPageRoute(builder: (context) => const ManageUsersScreen());
+
+      case '/admin-comments':
+        return MaterialPageRoute(builder: (context) => const AdminCommentsScreen());
 
       default:
         return MaterialPageRoute(

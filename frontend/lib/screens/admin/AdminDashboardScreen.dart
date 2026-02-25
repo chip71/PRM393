@@ -200,6 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _sidebarItem(Icons.album, "Albums", onTap: () => Navigator.pushNamed(context, '/manage-albums')),
           _sidebarItem(Icons.mic, "Artists", onTap: () => Navigator.pushNamed(context, '/manage-artists')),
           _sidebarItem(Icons.category, "Genres", onTap: () => Navigator.pushNamed(context, '/manage-genres')),
+          _sidebarItem(Icons.comment, "Comments", onTap: () => Navigator.pushNamed(context, '/admin-comments')),
           _sidebarItem(Icons.shopping_cart, "Orders", onTap: () => Navigator.pushNamed(context, '/manage-orders')),
           _sidebarItem(Icons.person, "Users", onTap: () => Navigator.pushNamed(context, '/manage-users')),
           const Spacer(),
