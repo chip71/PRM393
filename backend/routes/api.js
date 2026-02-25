@@ -10,6 +10,7 @@ const orderController = require('../controllers/orderController.js');
 const paymentController = require('../controllers/paymentController.js');
 const authController = require('../controllers/authController.js');
 const adminController = require('../controllers/adminController.js');
+const commentController = require('../controllers/commentController.js');
 
 // --- Safe wrapper để tránh lỗi controller ---
 const safe = (fn) =>
@@ -100,6 +101,8 @@ router.put('/admin/users/:id/password', safe(userController.changeUserPassword))
 /* =========================================================
    💰 PAYMENTS (MoMo)
 ========================================================= */
+router.post('/comments', safe(commentController.addComment)); // Add new comment
+router.get('/comments/album/:albumId', safe(commentController.getAlbumComments)); // Get comments for album
 router.post('/payments/momo/create-link', safe(paymentController.createMoMoPaymentLink)); // Tạo link MoMo
 router.post('/payments/momo/notify', safe(paymentController.momoNotify)); // IPN
 router.get('/payments/momo/return', safe(paymentController.momoReturn)); // Redirect MoMo

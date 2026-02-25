@@ -22,8 +22,12 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
   List<dynamic> artistAlbums = [];
   List<dynamic> artists = [];
   List<dynamic> genres = [];
+  List<dynamic> comments = [];
   bool isLoading = true;
   String? error;
+  final TextEditingController _commentController = TextEditingController();
+  int _selectedRating = 5;
+  bool _isSubmittingComment = false;
 
   @override
   void initState() {
@@ -37,6 +41,12 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     if (oldWidget.albumId != widget.albumId) {
       _loadData();
     }
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -75,6 +85,16 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
           final artRes = await http.get(Uri.parse('$apiUrl/api/albums/artist/$artistId?exclude=${widget.albumId}'));
           if (mounted) setState(() => artistAlbums = json.decode(artRes.body));
         }
+
+        // Load comments separately so it doesn't break the page if comments fail
+        try {
+          final commentsRes = await http.get(Uri.parse('$apiUrl/api/comments/album/${widget.albumId}'));
+          if (commentsRes.statusCode == 200 && mounted) {
+            setState(() => comments = json.decode(commentsRes.body));
+          }
+        } catch (e) {
+          if (mounted) setState(() => comments = []);
+        }
       }
     } catch (e) {
       if (mounted) setState(() => error = 'Could not load album details.');
@@ -89,6 +109,71 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not launch URL')));
       }
+    }
+  }
+
+  Future<void> _submitComment() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final String apiUrl = auth.apiUrl;
+    final String content = _commentController.text.trim();
+    final int rating = _selectedRating;
+
+    if (content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a comment'))
+      );
+      return;
+    }
+
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to post a comment'))
+      );
+      return;
+    }
+
+    if (rating < 1 || rating > 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rating must be between 1 and 5'))
+      );
+      return;
+    }
+
+    setState(() => _isSubmittingComment = true);
+
+    try {
+        final response = await http.post(
+        Uri.parse('$apiUrl/api/comments'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'albumId': widget.albumId,
+          'userId': auth.user?['_id'] ?? auth.user?['id'],
+          'username': auth.user?['name'] ?? 'Anonymous',
+          'role': auth.user?['role'] ?? 'user',
+          'content': content,
+          'rating': rating,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+      _commentController.clear();
+        await _loadData(); // Reload comments
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Comment posted successfully!'))
+          );
+        }
+      } else {
+        throw Exception('Failed to post comment');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error posting comment: $e'))
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmittingComment = false);
     }
   }
 
@@ -139,10 +224,13 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                     if (currentAlbum['spotify'] != null || currentAlbum['youtube'] != null)
                       _buildSocialLinks(currentAlbum),
 
-                    // Main Info Section
-                    _buildMainInfo(currentAlbum, isDesktop),
+                                // Main Info Section
+                                _buildMainInfo(currentAlbum, isDesktop),
 
-                    // Recommendations
+                                // Comments Section
+                                _buildCommentsSection(),
+
+                                // Recommendations
                     if (artistAlbums.isNotEmpty)
                       _buildRecommendationSection('More from ${currentAlbum['artistID']['name']}', artistAlbums),
                     if (recommendedAlbums.isNotEmpty)
@@ -337,5 +425,162 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
         const SizedBox(height: 30),
       ],
     );
+  }
+
+  Widget _buildCommentsSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 60),
+          const Text('Reviews & Ratings', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+
+          // Comment Form
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey[50],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Add Your Review', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _commentController,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    hintText: 'Share your thoughts about this album...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // Star selector for rating
+                    Row(
+                      children: List.generate(5, (i) {
+                        final idx = i + 1;
+                        return InkWell(
+                          onTap: () {
+                            setState(() => _selectedRating = idx);
+                          },
+                          child: Icon(
+                            idx <= _selectedRating ? Icons.star : Icons.star_border,
+                            color: Colors.amber,
+                            size: 28,
+                          ),
+                        );
+                      }),
+                    ),
+                    const Spacer(),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _isSubmittingComment ? null : _submitComment,
+                      child: _isSubmittingComment
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Post Review', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 30),
+
+          // Comments List
+          if (comments.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text('No reviews yet. Be the first to review!', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+              ),
+            )
+          else
+            Column(
+              children: comments.map<Widget>((comment) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[200]!),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            comment['username'] ?? 'Anonymous',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          Row(
+                            children: List.generate(5, (index) {
+                              final rating = comment['rating'] ?? 5;
+                              return Icon(
+                                index < rating ? Icons.star : Icons.star_border,
+                                color: Colors.amber,
+                                size: 16,
+                              );
+                            }),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        comment['content'] ?? '',
+                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        comment['createdAt'] != null
+                            ? _formatDate(comment['createdAt'])
+                            : '',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        if (difference.inHours == 0) {
+          return '${difference.inMinutes} minutes ago';
+        }
+        return '${difference.inHours} hours ago';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return '';
+    }
   }
 }
