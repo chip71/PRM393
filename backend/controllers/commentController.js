@@ -15,7 +15,7 @@ exports.addComment = async (req, res) => {
         const newComment = new Comment({
             albumId,
             userId,
-            username: user.username, // lấy trực tiếp từ DB
+            name: { type: String, required: true },
             parentId: parentId || null,
             content,
             rating: rating || 5
@@ -25,9 +25,9 @@ exports.addComment = async (req, res) => {
 
         res.status(201).json(newComment);
     } catch (err) {
-        res.status(400).json({ 
-            message: 'Error posting comment', 
-            error: err.message 
+        res.status(400).json({
+            message: 'Error posting comment',
+            error: err.message
         });
     }
 };
@@ -41,9 +41,9 @@ exports.getAlbumComments = async (req, res) => {
 
         res.json(comments);
     } catch (err) {
-        res.status(500).json({ 
-            message: 'Error fetching comments', 
-            error: err.message 
+        res.status(500).json({
+            message: 'Error fetching comments',
+            error: err.message
         });
     }
 };
@@ -59,9 +59,9 @@ exports.getAllComments = async (req, res) => {
 
         res.json(comments);
     } catch (err) {
-        res.status(500).json({ 
-            message: 'Error fetching comments', 
-            error: err.message 
+        res.status(500).json({
+            message: 'Error fetching comments',
+            error: err.message
         });
     }
 };
@@ -73,9 +73,9 @@ exports.deleteComment = async (req, res) => {
         await Comment.findByIdAndDelete(req.params.id);
         res.json({ message: 'Comment deleted successfully' });
     } catch (err) {
-        res.status(500).json({ 
-            message: 'Error deleting comment', 
-            error: err.message 
+        res.status(500).json({
+            message: 'Error deleting comment',
+            error: err.message
         });
     }
 };
@@ -94,9 +94,9 @@ exports.updateComment = async (req, res) => {
 
         res.json(updated);
     } catch (err) {
-        res.status(500).json({ 
-            message: 'Error updating comment', 
-            error: err.message 
+        res.status(500).json({
+            message: 'Error updating comment',
+            error: err.message
         });
     }
 };
