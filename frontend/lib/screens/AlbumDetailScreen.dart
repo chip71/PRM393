@@ -110,48 +110,32 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
   Future<void> _submitComment() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
-    if (!auth.isAuthenticated) {
+    if (!auth.isAuthenticated || auth.user?['_id'] == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Please login to comment')));
+      ).showSnackBar(const SnackBar(content: Text('Please login again')));
       return;
     }
 
     String content = _commentController.text.trim();
     if (content.isEmpty) return;
 
-    try {
-      final response = await http.post(
-        Uri.parse('${auth.apiUrl}/api/comments'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'albumId': widget.albumId,
-          'userId': auth.user?['_id'], // chỉ gửi userId
-          'content': content,
-          'parentId': replyingToId,
-          // chỉ gửi rating nếu là comment cha
-          if (replyingToId == null) 'rating': _selectedRating,
-        }),
-      );
+    print("Sending comment with userId: ${auth.user!['_id']}");
 
-      if (response.statusCode == 201) {
-        _commentController.clear();
+    final response = await http.post(
+      Uri.parse('${auth.apiUrl}/api/comments'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'albumId': widget.albumId,
+        'userId': auth.user!['_id'],
+        'content': content,
+        if (replyingToId != null) 'parentId': replyingToId,
+        if (replyingToId == null) 'rating': _selectedRating.toInt(),
+      }),
+    );
 
-        setState(() {
-          replyingToId = null;
-          replyingToName = null;
-          _selectedRating = 5;
-        });
-
-        _loadData(); // refresh comment
-      } else {
-        throw Exception('Failed to post comment');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Error posting comment')));
-    }
+    print("Status: ${response.statusCode}");
+    print("Body: ${response.body}");
   }
 
   Future<void> _launchURL(String urlString) async {

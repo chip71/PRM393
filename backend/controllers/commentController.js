@@ -6,25 +6,33 @@ exports.addComment = async (req, res) => {
     try {
         const { albumId, userId, content, rating, parentId } = req.body;
 
-        // Tìm user để lấy username
-        const user = await User.findById(userId);
+        if (!albumId || !userId || !content) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const user = await User.findById(userId).lean();
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        console.log("USER FOUND:", user);
+
         const newComment = new Comment({
             albumId,
             userId,
-            name: { type: String, required: true },
+            username: user.name,  // chắc chắn tồn tại
             parentId: parentId || null,
             content,
-            rating: rating || 5
+            rating: parentId ? null : rating
         });
 
         await newComment.save();
 
         res.status(201).json(newComment);
+
     } catch (err) {
+        console.error("ADD COMMENT ERROR:", err);
         res.status(400).json({
             message: 'Error posting comment',
             error: err.message
