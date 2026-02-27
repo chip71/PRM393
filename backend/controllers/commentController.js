@@ -39,7 +39,18 @@ exports.getAlbumComments = async (req, res) => {
 // Retrieve every comment in the system (for moderation dashboard)
 exports.getAllComments = async (req, res) => {
     try {
-        const comments = await Comment.find().sort({ createdAt: 1 });
+        let comments = await Comment.find()
+            .sort({ createdAt: 1 })
+            .populate('albumId', 'name')          // include album name
+            .populate('userId', 'name');          // include user name (if desired)
+        // add explicit albumName property for clients
+        comments = comments.map(c => {
+            const obj = c.toObject ? c.toObject() : c;
+            if (obj.albumId && obj.albumId.name) {
+                obj.albumName = obj.albumId.name;
+            }
+            return obj;
+        });
         res.json(comments);
     } catch (err) {
         res.status(500).json({ message: 'Error retrieving comments', error: err.message });
