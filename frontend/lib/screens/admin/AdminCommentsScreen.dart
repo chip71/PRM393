@@ -15,6 +15,10 @@ class _AdminCommentsScreenState extends State<AdminCommentsScreen> {
   List<dynamic> comments = [];
   bool isLoading = true;
 
+  // Controllers & visibility state for reply inputs
+  final Map<String, TextEditingController> _replyControllers = {};
+  final Map<String, bool> _showReply = {};
+
   @override
   void initState() {
     super.initState();
@@ -45,32 +49,39 @@ class _AdminCommentsScreenState extends State<AdminCommentsScreen> {
     try {
       final res = await http.delete(Uri.parse('$apiUrl/api/admin/comments/$id'));
       if (res.statusCode == 200) {
-        setState(() => comments.removeWhere((c) => (c['_id'] ?? c['id']).toString() == id));
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted')));
+        setState(
+            () => comments.removeWhere((c) => (c['_id'] ?? c['id']).toString() == id));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Deleted')));
       } else {
         throw Exception('delete failed');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
-  Future<void> _replyToComment(String parentId, TextEditingController controller) async {
+  /// Post a reply as an admin.  Requires the albumId of the original comment
+  Future<void> _replyToComment(
+      String parentId, String albumId, TextEditingController controller) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final apiUrl = auth.apiUrl;
     final text = controller.text.trim();
     if (text.isEmpty) return;
 
     try {
-      final res = await http.post(Uri.parse('$apiUrl/api/comments'), headers: {'Content-Type':'application/json'}, body: json.encode({
-        'albumId': (comments.firstWhere((c) => (c['_id'] ?? c['id']).toString() == parentId)['albumId'] ?? {})['_id'] ?? comments.firstWhere((c) => (c['_id'] ?? c['id']).toString() == parentId)['albumId'],
-        'userId': auth.user?['_id'] ?? auth.user?['id'],
-        'username': auth.user?['name'] ?? 'Admin',
-        'role': 'admin',
-        'content': text,
-        'rating': 5,
-        'parentId': parentId,
-      }));
+      final res = await http.post(Uri.parse('$apiUrl/api/comments'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'albumId': albumId,
+            'userId': auth.user?['_id'] ?? auth.user?['id'],
+            'username': auth.user?['name'] ?? 'Admin',
+            'role': 'admin',
+            'content': text,
+            'rating': 5,
+            'parentId': parentId,
+          }));
       if (res.statusCode == 201) {
         controller.clear();
         await _loadComments();
@@ -78,8 +89,105 @@ class _AdminCommentsScreenState extends State<AdminCommentsScreen> {
         throw Exception('Reply failed');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     }
+  }
+
+  /// Build a tree of comment widgets with indentation.
+  List<Widget> _buildCommentTree() {
+    final Map<String, List<dynamic>> childrenMap = {};
+    final List<dynamic> roots = [];
+
+    for (var c in comments) {
+      if (c['parentId'] == null) {
+        roots.add(c);
+      } else {
+        final pid = c['parentId'].toString();
+        childrenMap.putIfAbsent(pid, () => []).add(c);
+      }
+    }
+
+    return roots
+        .map((root) => _buildCommentNode(root, childrenMap, 0))
+        .toList();
+  }
+
+  Widget _buildCommentNode(
+      dynamic comment, Map<String, List<dynamic>> childrenMap, int depth) {
+    final id = (comment['_id'] ?? comment['id']).toString();
+    final album = comment['albumId'] ?? {};
+    final user = comment['userId'] ?? {};
+
+    _replyControllers.putIfAbsent(id, () => TextEditingController());
+    _showReply.putIfAbsent(id, () => false);
+
+    final padding = EdgeInsets.only(left: depth * 24.0, bottom: 12);
+    final children = childrenMap[id] ?? [];
+
+    return Padding(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(user['name'] ?? comment['username'] ?? 'Unknown',
+                          style:
+                              const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(album['name'] ?? 'Unknown album',
+                          style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(comment['content'] ?? ''),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      ElevatedButton(
+                          onPressed: () => _deleteComment(id),
+                          child: const Text('Delete')),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                          onPressed: () => setState(() {
+                                _showReply[id] = !_showReply[id]!;
+                              }),
+                          child: const Text('Reply as Admin')),
+                    ],
+                  ),
+                  if (_showReply[id] == true) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _replyControllers[id],
+                      decoration: const InputDecoration(hintText: 'Reply...'),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                          icon: const Icon(Icons.send),
+                          onPressed: () =>
+                              _replyToComment(id, album['_id'] ?? album, _replyControllers[id]!)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          // recursively add children
+          ...children
+              .map((child) => _buildCommentNode(child, childrenMap, depth + 1))
+              .toList(),
+        ],
+      ),
+    );
   }
 
   @override
@@ -88,47 +196,10 @@ class _AdminCommentsScreenState extends State<AdminCommentsScreen> {
       appBar: AppBar(title: const Text('Manage Comments')),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: comments.length,
-              itemBuilder: (context, i) {
-                final c = comments[i];
-                final id = (c['_id'] ?? c['id']).toString();
-                final album = c['albumId'] ?? {};
-                final user = c['userId'] ?? {};
-                final replyController = TextEditingController();
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(user['name'] ?? c['username'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Text(album['name'] ?? 'Unknown album', style: const TextStyle(color: Colors.grey)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(c['content'] ?? ''),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            ElevatedButton(onPressed: () => _deleteComment(id), child: const Text('Delete')),
-                            const SizedBox(width: 8),
-                            ElevatedButton(onPressed: () => _replyToComment(id, replyController), child: const Text('Reply as Admin')),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(controller: replyController, decoration: const InputDecoration(hintText: 'Reply...')),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+              children: _buildCommentTree(),
+            ),
     );
   }
 }
