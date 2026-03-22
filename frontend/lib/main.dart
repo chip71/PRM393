@@ -124,7 +124,7 @@ class MyApp extends StatelessWidget {
       case '/genre-detail':
         final args = settings.arguments as Map<String, dynamic>;
         return MaterialPageRoute(
-          builder: (context) => GenreDetailScreen(genreId: args['id'], genreName: args['name']),
+          builder: (context) => GenreDetailScreen(genreId: args['genreId'], genreName: args['genreName']),
         );
 
       case '/login':
