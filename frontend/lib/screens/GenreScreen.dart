@@ -50,9 +50,7 @@ class _GenreScreenState extends State<GenreScreen>
   Future<void> _fetchGenres() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final response = await http.get(
-        Uri.parse('${auth.apiUrl}/api/genres'),
-      );
+      final response = await http.get(Uri.parse('${auth.apiUrl}/api/genres'));
       if (response.statusCode == 200) {
         if (mounted) {
           setState(() {
@@ -75,8 +73,8 @@ class _GenreScreenState extends State<GenreScreen>
     return genres
         .where(
           (g) => g['name'].toString().toLowerCase().contains(
-                searchText.toLowerCase(),
-              ),
+            searchText.toLowerCase(),
+          ),
         )
         .toList();
   }
@@ -86,7 +84,7 @@ class _GenreScreenState extends State<GenreScreen>
     // Xác định kích thước màn hình
     double screenWidth = MediaQuery.of(context).size.width;
     bool isDesktop = screenWidth > 900;
-    
+
     // Tính toán số cột dựa trên chiều rộng màn hình
     int crossAxisCount = isDesktop ? (screenWidth ~/ 250) : 2;
 
@@ -108,8 +106,8 @@ class _GenreScreenState extends State<GenreScreen>
                 child: Text(
                   "All Genres",
                   style: TextStyle(
-                    fontSize: isDesktop ? 28 : 22, 
-                    fontWeight: FontWeight.bold
+                    fontSize: isDesktop ? 28 : 22,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -151,13 +149,17 @@ class _GenreScreenState extends State<GenreScreen>
         return MouseRegion(
           cursor: SystemMouseCursors.click, // Hiệu ứng bàn tay trên Desktop
           child: GestureDetector(
+            // Trong file GenreScreen.dart
             onTap: () {
               Navigator.pushNamed(
                 context,
                 '/genre-detail',
                 arguments: {
-                  'id': genre['_id'].toString(),
-                  'name': genre['name'] ?? 'Genre',
+                  'genreId': genre['_id']
+                      .toString(), // Đổi từ 'id' thành 'genreId'
+                  'genreName':
+                      genre['name'] ??
+                      'Genre', // Đổi từ 'name' thành 'genreName'
                 },
               );
             },
@@ -183,7 +185,9 @@ class _GenreScreenState extends State<GenreScreen>
                         size: Size.infinite,
                         painter: WavePainter(
                           animationValue: _waveController.value,
-                          color: Colors.white.withOpacity(0.15), // Giảm độ đậm sóng để text rõ hơn
+                          color: Colors.white.withOpacity(
+                            0.15,
+                          ), // Giảm độ đậm sóng để text rõ hơn
                         ),
                       );
                     },
@@ -191,10 +195,14 @@ class _GenreScreenState extends State<GenreScreen>
                   Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Align(
-                      alignment: isDesktop ? Alignment.center : Alignment.topLeft,
+                      alignment: isDesktop
+                          ? Alignment.center
+                          : Alignment.topLeft,
                       child: Text(
                         genre['name'],
-                        textAlign: isDesktop ? TextAlign.center : TextAlign.left,
+                        textAlign: isDesktop
+                            ? TextAlign.center
+                            : TextAlign.left,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: isDesktop ? 22 : 18,
