@@ -422,25 +422,30 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
           ),
         ),
         const SizedBox(height: 40),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            minimumSize: const Size(double.infinity, 60),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        // Chỉ hiển thị khi stock lớn hơn 0
+        if ((data['stock'] ?? 0) > 0)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black,
+              minimumSize: const Size(double.infinity, 60),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Provider.of<AuthProvider>(context, listen: false).addToCart(data);
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Added to cart!')));
+            },
+            child: const Text(
+              'ADD TO CART',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          onPressed: () {
-            Provider.of<AuthProvider>(context, listen: false).addToCart(data);
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Added to cart!')));
-          },
-          child: const Text(
-            'ADD TO CART',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ),
       ],
     );
   }

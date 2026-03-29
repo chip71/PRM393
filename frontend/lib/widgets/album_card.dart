@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Thêm thư viện để định dạng tiền tệ
+import 'package:intl/intl.dart';
 
 class AlbumCard extends StatefulWidget {
   final dynamic album;
@@ -20,21 +20,13 @@ class _AlbumCardState extends State<AlbumCard> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     bool isSoldOut = (widget.album['stock'] ?? 0) <= 0;
-
     _controller = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    );
-
-    if (isSoldOut) {
-      _controller.forward();
-    }
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+    if (isSoldOut) _controller.forward();
   }
 
   @override
@@ -46,17 +38,12 @@ class _AlbumCardState extends State<AlbumCard> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final bool isSoldOut = (widget.album['stock'] ?? 0) <= 0;
-
-    // FIX: Kiểm tra dữ liệu an toàn từ Object hoặc Map
-    final String artistName = widget.album['artistID'] is Map 
+    final String artistName = widget.album['artistID'] is Map
         ? (widget.album['artistID']['name'] ?? 'Unknown Artist')
         : 'Unknown Artist';
-    
-    final String genreName = widget.album['genreID'] is Map 
+    final String genreName = widget.album['genreID'] is Map
         ? (widget.album['genreID']['name'] ?? 'Genre')
         : 'Genre';
-
-    // Định dạng tiền tệ VND: 1.200.000 ₫
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 
     return Container(
@@ -64,51 +51,47 @@ class _AlbumCardState extends State<AlbumCard> with SingleTickerProviderStateMix
       margin: const EdgeInsets.only(right: 16, bottom: 10),
       child: InkWell(
         onTap: () {
-          Navigator.pushNamed(
-            context,
-            '/album-detail',
-            arguments: widget.album['_id'].toString(), // Luôn toString ID khi truyền
-          );
+          Navigator.pushNamed(context, '/album-detail', arguments: widget.album['_id'].toString());
         },
         borderRadius: BorderRadius.circular(12),
         child: Column(
+          mainAxisSize: MainAxisSize.min, // QUAN TRỌNG: Chỉ chiếm không gian cần thiết
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Phần hình ảnh
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Opacity(
-                      opacity: isSoldOut ? 0.6 : 1.0,
-                      child: Image.network(
-                        widget.album['image'] ?? '',
-                        width: 160,
-                        height: 160,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Colors.grey[200],
-                          width: 160,
-                          height: 160,
-                          child: const Icon(Icons.album, color: Colors.grey),
+            // Phần hình ảnh - Giữ AspectRatio để ảnh luôn vuông và không bị tràn
+            AspectRatio(
+              aspectRatio: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Opacity(
+                        opacity: isSoldOut ? 0.6 : 1.0,
+                        child: Image.network(
+                          widget.album['image'] ?? '',
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.album, color: Colors.grey),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (isSoldOut)
-                    Positioned.fill(
-                      child: Center(
+                    if (isSoldOut)
+                      Center(
                         child: FadeTransition(
                           opacity: _fadeAnimation,
                           child: ScaleTransition(
@@ -127,14 +110,14 @@ class _AlbumCardState extends State<AlbumCard> with SingleTickerProviderStateMix
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
 
             // Thông tin văn bản
             Padding(
-              padding: const EdgeInsets.only(top: 10, left: 4),
+              padding: const EdgeInsets.only(top: 8, left: 4, right: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -142,28 +125,32 @@ class _AlbumCardState extends State<AlbumCard> with SingleTickerProviderStateMix
                     widget.album['name'] ?? '',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     artistName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
+                  // Dùng Wrap hoặc Row với Flexible để tránh tràn giá tiền
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        genreName.toUpperCase(),
-                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      Expanded(
+                        child: Text(
+                          genreName.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9, color: Colors.grey),
+                        ),
                       ),
                       if (widget.album['price'] != null)
                         Text(
                           currencyFormat.format(widget.album['price']),
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: Colors.blueAccent,
                           ),

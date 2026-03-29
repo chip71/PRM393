@@ -43,44 +43,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // --- GIAO DIỆN KHI ĐÃ ĐĂNG NHẬP ---
+  // --- GIAO DIỆN KHI ĐÃ ĐĂNG NHẬP ---
   Widget _buildLoggedInView(AuthProvider auth) {
     final user = auth.user;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          const Text("👋 Welcome,",
-              style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black54)),
-          Text(user?['name'] ?? 'User',
-              style:
-                  const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-          Text(user?['email'] ?? '',
-              style: const TextStyle(fontSize: 16, color: Colors.grey)),
-          const SizedBox(height: 40),
+      // THAY ĐỔI: Dùng SingleChildScrollView để cho phép cuộn khi tràn màn hình
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(), // Hiệu ứng cuộn mượt mà
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            const Text("👋 Welcome,",
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54)),
+            Text(user?['name'] ?? 'User',
+                style:
+                const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+            Text(user?['email'] ?? '',
+                style: const TextStyle(fontSize: 16, color: Colors.grey)),
+            const SizedBox(height: 40),
 
-          _profileButton(Icons.receipt_long_outlined, "View Order History", () {
-            Navigator.pushNamed(context, '/order-history');
-          }),
-          _profileButton(Icons.edit_outlined, "Edit Profile", () {
-            Navigator.pushNamed(context, '/edit-profile');
-          }),
-          _profileButton(Icons.lock_outline, "Change Password", () {
-            Navigator.pushNamed(context, '/change-password');
-          }),
+            _profileButton(Icons.receipt_long_outlined, "View Order History", () {
+              Navigator.pushNamed(context, '/order-history');
+            }),
+            _profileButton(Icons.edit_outlined, "Edit Profile", () {
+              Navigator.pushNamed(context, '/edit-profile');
+            }),
+            _profileButton(Icons.lock_outline, "Change Password", () {
+              Navigator.pushNamed(context, '/change-password');
+            }),
 
-          const Spacer(),
+            // THAY ĐỔI: Không dùng Spacer() trong SingleChildScrollView vì nó sẽ gây lỗi.
+            // Thay vào đó dùng SizedBox để tạo khoảng cách lớn nếu muốn.
+            const SizedBox(height: 40),
 
-          _profileButton(Icons.logout, "Logout", () {
-            auth.logout();
-          }, isLogout: true),
-          const SizedBox(height: 20),
-        ],
+            _profileButton(Icons.logout, "Logout", () {
+              auth.logout();
+            }, isLogout: true),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
